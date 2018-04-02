@@ -1,20 +1,35 @@
-import { Component, createComponentVNode, VNode } from 'inferno';
+import { Component, ComponentType, createComponentVNode, InfernoChildren, VNode } from 'inferno';
 import { VNodeFlags } from 'inferno-vnode-flags';
 import { Children, invariant, warning } from './utils';
 import { matchPath } from './matchPath';
+import * as H from 'history';
 
 const isEmptyChildren = children => Children.count(children) === 0;
 
+export interface Match<P> {
+  params: P;
+  isExact: boolean;
+  path: string;
+  url: string;
+}
+
+export interface RouteComponentProps<P> {
+  match: Match<P>;
+  location: H.Location;
+  history: H.History;
+  staticContext?: any;
+}
+
 export interface IRouteProps {
-  computedMatch: any; // private, from <Switch>
-  path: any;
-  exact: any;
-  strict: any;
-  sensitive: any;
-  component: any;
-  render: any;
-  location: any;
-  children: Array<Component<any, any>>;
+  computedMatch?: any; // private, from <Switch>
+  path?: string;
+  exact?: boolean;
+  strict?: boolean;
+  sensitive?: boolean;
+  component?: ComponentType<RouteComponentProps<any>> | ComponentType<any>;
+  render?: ((props: RouteComponentProps<any>) => VNode);
+  location?: H.Location;
+  children?: ((props: RouteComponentProps<any>) => VNode) | InfernoChildren;
 }
 
 /**

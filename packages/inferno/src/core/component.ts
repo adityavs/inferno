@@ -1,11 +1,12 @@
 import { VNodeFlags } from 'inferno-vnode-flags';
-import { Props, VNode } from './implementation';
+import { Props, VNode, InfernoChildren, Refs } from './implementation';
 import { combineFrom, isFunction, isNull, isNullOrUndef, throwError } from 'inferno-shared';
 import { updateClassComponent } from '../DOM/patching';
 import { callAll, EMPTY_OBJ, LIFECYCLE } from '../DOM/utils/common';
 
 const resolvedPromise: any = typeof Promise === 'undefined' ? null : Promise.resolve();
-const fallbackMethod = typeof requestAnimationFrame === 'undefined' ? setTimeout : requestAnimationFrame;
+// raf.bind(window) is needed to work around bug in IE10-IE11 strict mode (TypeError: Invalid calling object)
+const fallbackMethod = typeof requestAnimationFrame === 'undefined' ? setTimeout : requestAnimationFrame.bind(window);
 function nextTick(fn) {
   if (resolvedPromise) {
     return resolvedPromise.then(fn);
@@ -109,11 +110,30 @@ function applyState<P, S>(component: Component<P, S>, force: boolean, callback?:
   }
 }
 
+export interface ComponentLifecycle<P, S> {
+  componentDidMount?(): void;
+
+  componentWillMount?(): void;
+
+  componentWillReceiveProps?(nextProps: P, nextContext: any): void;
+
+  shouldComponentUpdate?(nextProps: P, nextState: S, nextContext: any): boolean;
+
+  componentWillUpdate?(nextProps: P, nextState: S, nextContext: any): void;
+
+  componentDidUpdate?(prevProps: P, prevState: S, prevContext: any): void;
+
+  componentWillUnmount?(): void;
+
+  getChildContext?(): void;
+}
+
+export interface Component<P = {}, S = {}> extends ComponentLifecycle<P, S> {}
 export class Component<P, S> {
   // Public
   public static defaultProps: {} | null = null;
   public state: S | null = null;
-  public props: P & Props;
+  public props: Props<P, this> & P;
   public context: any;
 
   // Internal properties
@@ -135,23 +155,6 @@ export class Component<P, S> {
     /** @type {object} */
     this.context = context || EMPTY_OBJ; // context should not be mutable
   }
-
-  // LifeCycle methods
-  public componentDidMount?(): void;
-
-  public componentWillMount?(): void;
-
-  public componentWillReceiveProps?(nextProps: P, nextContext: any): void;
-
-  public shouldComponentUpdate?(nextProps: P, nextState: S, nextContext: any): boolean;
-
-  public componentWillUpdate?(nextProps: P, nextState: S, nextContext: any): void;
-
-  public componentDidUpdate?(prevProps: P, prevState: S, prevContext: any): void;
-
-  public componentWillUnmount?(): void;
-
-  public getChildContext?(): void;
 
   public forceUpdate(callback?: Function) {
     if (this.$UN) {
@@ -177,5 +180,34 @@ export class Component<P, S> {
   }
 
   // tslint:disable-next-line:no-empty
-  public render(nextProps?: P, nextState?, nextContext?): any {}
+  public render(nextProps?: P, nextState?, nextContext?): InfernoChildren {
+    return undefined;
+  }
 }
+
+export type ComponentType<P = {}> = ComponentClass<P> | StatelessComponent<P>;
+
+export type SFC<P = {}> = StatelessComponent<P>;
+
+export interface StatelessComponent<P = {}> {
+  (props: P & { children?: InfernoChildren }, context?: any): VNode<P> | null;
+
+  defaultProps?: Partial<P>;
+  displayName?: string;
+  defaultHooks?: Refs<P>;
+}
+
+export interface ComponentClass<P = {}> {
+  new (props?: P, context?: any): Component<P, {}>;
+
+  defaultProps?: Partial<P>;
+  displayName?: string;
+}
+
+export type Validator<T> = { bivarianceHack(object: T, key: string, componentName: string, ...rest: any[]): Error | null }['bivarianceHack'];
+
+export interface Requireable<T> extends Validator<T> {
+  isRequired: Validator<T>;
+}
+
+export type ValidationMap<T> = { [K in keyof T]?: Validator<T> };

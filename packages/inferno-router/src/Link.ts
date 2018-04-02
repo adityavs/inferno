@@ -1,20 +1,20 @@
-import { linkEvent, createVNode, VNode } from 'inferno';
+import { linkEvent, createVNode, VNode, MouseEvent } from 'inferno';
 import { ChildFlags, VNodeFlags } from 'inferno-vnode-flags';
 import { invariant } from './utils';
 
-const isModifiedEvent = (event): boolean => Boolean(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
+const isModifiedEvent = (event: MouseEvent<any>): boolean => Boolean(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
 
 export interface ILinkProps {
   children: any;
   onClick?: any;
   target?: string;
   className?: string;
-  replace: boolean;
+  replace?: boolean;
   to?: string | {};
-  innerRef: any;
+  innerRef?: any;
 }
 
-function handleClick({ props, context }, event) {
+function handleClick({ props, context }, event: MouseEvent<any>) {
   if (props.onClick) {
     props.onClick(event);
   }

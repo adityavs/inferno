@@ -1,4 +1,5 @@
 import { isNull } from 'inferno-shared';
+import { SemiSyntheticEvent } from 'inferno';
 
 const attachedEventCounts = {};
 const attachedEvents = {};
@@ -32,7 +33,7 @@ export function handleEvent(name: string, nextEvent: Function | null, dom) {
   }
 }
 
-function dispatchEvents(event, target, isClick: boolean, name: string, eventData: IEventData) {
+function dispatchEvents(event: SemiSyntheticEvent<any>, target, isClick: boolean, name: string, eventData: IEventData) {
   let dom = target;
   while (!isNull(dom)) {
     // Html Nodes can be nested fe: span inside button in that scenario browser does not handle disabled attribute on parent,
@@ -92,18 +93,15 @@ function attachEventToDocument(name: string) {
       dom: document as any
     };
 
-    try {
-      Object.defineProperty(event, 'currentTarget', {
-        configurable: true,
-        get: function get() {
-          return eventData.dom;
-        }
-      });
-    } catch (e) {
-      /* safari7 and phantomJS will crash */
-    }
+    Object.defineProperty(event, 'currentTarget', {
+      configurable: true,
+      get: function get() {
+        return eventData.dom;
+      }
+    });
 
     dispatchEvents(event, event.target, isClick, name, eventData);
+    return;
   };
   document.addEventListener(normalizeEventName(name), docEvent);
   return docEvent;

@@ -2,16 +2,12 @@ import { Component, createComponentVNode, VNode } from 'inferno';
 import { matchPath } from './matchPath';
 import { Children, invariant, isValidElement, warning } from './utils';
 import { combineFrom } from 'inferno-shared';
-
-export interface ISwitchProps {
-  router: any;
-  children: Array<Component<any, any>>;
-}
+import { IRouteProps } from './Route';
 
 /**
  * The public API for rendering the first <Route> that matches.
  */
-export class Switch extends Component<ISwitchProps, any> {
+export class Switch extends Component<IRouteProps, any> {
   public componentWillMount() {
     invariant(this.context.router, 'You should not use <Switch> outside a <Router>');
   }

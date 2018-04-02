@@ -2,15 +2,24 @@ const path = require('path');
 const resolve = pkg => path.join(__dirname, '../../packages', pkg, 'src');
 
 const customLaunchers = {
+  slChrome: {
+    base: 'SauceLabs',
+    browserName: 'chrome'
+  },
   slIphone5: {
     base: 'SauceLabs',
     browserName: 'iphone',
-    version: '8.4'
+    version: '9.3'
   },
   slIpad: {
     base: 'SauceLabs',
     browserName: 'ipad',
     version: '10.3'
+  },
+  slIpad2: {
+    base: 'SauceLabs',
+    browserName: 'ipad',
+    version: '11.2'
   },
   slIphone6: {
     base: 'SauceLabs',
@@ -20,7 +29,7 @@ const customLaunchers = {
   slIphone7: {
     base: 'SauceLabs',
     browserName: 'iphone',
-    version: '11'
+    version: '11.2'
   },
   slSafari8: {
     base: 'SauceLabs',
@@ -40,13 +49,8 @@ const customLaunchers = {
   sl_safari: {
     base: 'SauceLabs',
     browserName: 'safari',
-    platform: 'OS X 10.12'
-  },
-  slIE9: {
-    base: 'SauceLabs',
-    browserName: 'internet explorer',
-    platform: 'Windows 7',
-    version: '9'
+    platform: 'OS X 10.12',
+    version: "11"
   },
   slIE10: {
     base: 'SauceLabs',
@@ -88,10 +92,6 @@ const customLaunchers = {
     browserName: 'chrome',
     platform: 'macOS 10.12'
   },
-  slChrome: {
-    base: 'SauceLabs',
-    browserName: 'chrome'
-  },
   slFirefox: {
     base: 'SauceLabs',
     browserName: 'firefox'
@@ -114,11 +114,16 @@ module.exports = function(config) {
 
     frameworks: ['jasmine', 'jasmine-matchers'],
 
-    files: ['./packages/*/__tests__/**/*.spec.js', './packages/*/__tests__/**/*.spec.jsx'],
+    files: [path.join(__dirname, '../../fixtures/browser/test.index.js')],
 
     preprocessors: {
-      './packages/*/__tests__/**/*': ['webpack'],
-      './packages/*/__tests__/*': ['webpack']
+      './fixtures/browser/test.index.js': ['webpack']
+    },
+
+    client: {
+      jasmine: {
+        random: false // Adding jasmine.random false disables test random order
+      }
     },
 
     reporters: ['failed', 'saucelabs'],
@@ -140,8 +145,8 @@ module.exports = function(config) {
     customLaunchers: customLaunchers,
     browsers: Object.keys(customLaunchers),
 
-    captureTimeout: 300000,
-    browserNoActivityTimeout: 300000,
+    captureTimeout: 600000,
+    browserNoActivityTimeout: 600000,
     browserDisconnectTolerance: 2,
 
     browserConsoleLogOptions: {
@@ -158,6 +163,7 @@ module.exports = function(config) {
       noInfo: true
     },
     webpack: {
+      mode: 'development',
       module: {
         rules: [
           {
@@ -169,7 +175,6 @@ module.exports = function(config) {
               plugins: [
                 'transform-decorators-legacy',
                 ['babel-plugin-inferno', { imports: true }],
-                'transform-es2015-modules-commonjs',
                 'transform-class-properties',
                 'transform-object-rest-spread',
                 'babel-plugin-syntax-jsx',
@@ -207,7 +212,8 @@ module.exports = function(config) {
           'inferno-test-utils': resolve('inferno-test-utils'),
           'inferno-utils': resolve('inferno-utils'),
           'inferno-vnode-flags': resolve('inferno-vnode-flags'),
-          'inferno-clone-vnode': resolve('inferno-clone-vnode')
+          'inferno-clone-vnode': resolve('inferno-clone-vnode'),
+          mobx: path.join(__dirname, '../../node_modules/mobx/lib/mobx.module.js')
         },
         extensions: ['.js', '.jsx', '.ts'],
         mainFields: ['browser', 'main']

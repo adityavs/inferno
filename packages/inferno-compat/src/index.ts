@@ -153,20 +153,18 @@ function normalizeGenericProps(props) {
   }
 }
 
-function normalizeFormProps(name: string, props: Props | any) {
+function normalizeFormProps<P>(name: string, props: Props<P> | any) {
   if ((name === 'input' || name === 'textarea') && props.type !== 'radio' && props.onChange) {
     const type = props.type;
     let eventName;
 
-    if (type === 'checkbox') {
-      eventName = 'onclick';
+    if (!type || type === 'text') {
+      eventName = 'oninput';
     } else if (type === 'file') {
       eventName = 'onchange';
-    } else {
-      eventName = 'oninput';
     }
 
-    if (!props[eventName]) {
+    if (eventName && !props[eventName]) {
       props[eventName] = props.onChange;
       props.onChange = void 0;
     }
@@ -179,9 +177,23 @@ function normalizeFormProps(name: string, props: Props | any) {
 // every prop event that starts with "on", i.e. onClick or onKeyPress
 // but in reality devs use onSomething for many things, not only for
 // input events
-if (typeof Event !== 'undefined' && !Event.prototype.persist) {
-  // tslint:disable-next-line:no-empty
-  Event.prototype.persist = function() {};
+if (typeof Event !== 'undefined') {
+  const eventProtoType = Event.prototype as any;
+
+  if (!eventProtoType.persist) {
+    // tslint:disable-next-line:no-empty
+    eventProtoType.persist = function() {};
+  }
+  if (!eventProtoType.isDefaultPrevented) {
+    eventProtoType.isDefaultPrevented = function() {
+      return this.defaultPrevented;
+    };
+  }
+  if (!eventProtoType.isPropagationStopped) {
+    eventProtoType.isPropagationStopped = function() {
+      return this.cancelBubble;
+    };
+  }
 }
 
 function iterableToArray(iterable) {
@@ -189,9 +201,7 @@ function iterableToArray(iterable) {
   const tmpArr: any[] = [];
   do {
     iterStep = iterable.next();
-    if (iterStep.value) {
-      tmpArr.push(iterStep.value);
-    }
+    tmpArr.push(iterStep.value);
   } while (!iterStep.done);
 
   return tmpArr;
@@ -202,7 +212,7 @@ const hasSymbolSupport = typeof g.Symbol !== 'undefined';
 const symbolIterator = hasSymbolSupport ? g.Symbol.iterator : '';
 const oldCreateVNode = options.createVNode;
 
-options.createVNode = (vNode: VNode): boolean => {
+options.createVNode = (vNode: VNode) => {
   const children = vNode.children as any;
   const ref = vNode.ref;
   let props: any = vNode.props;
@@ -212,7 +222,7 @@ options.createVNode = (vNode: VNode): boolean => {
   }
 
   // React supports iterable children, in addition to Array-like
-  if (hasSymbolSupport && !isNull(children) && typeof children === 'object' && isFunction(children[symbolIterator])) {
+  if (hasSymbolSupport && !isNull(children) && !isArray(children) && typeof children === 'object' && isFunction(children[symbolIterator])) {
     vNode.children = iterableToArray(children[symbolIterator]());
   }
   if (typeof ref === 'string' && !isNull(currentComponent)) {
@@ -251,8 +261,6 @@ options.createVNode = (vNode: VNode): boolean => {
   if (oldCreateVNode) {
     oldCreateVNode(vNode);
   }
-
-  return (flags & VNodeFlags.Element) > 0;
 };
 
 // Credit: preact-compat - https://github.com/developit/preact-compat :)
@@ -276,10 +284,16 @@ class PureComponent<P, S> extends Component<P, S> {
   }
 }
 
-class WrapperComponent<P, S> extends Component<P, S> {
+interface ContextProps {
+  context: any;
+}
+
+type WrapperComponentProps<P> = P & ContextProps;
+
+class WrapperComponent<P, S> extends Component<WrapperComponentProps<P>, S> {
   public getChildContext() {
     // tslint:disable-next-line
-    return this.props.contex;
+    return this.props.context;
   }
 
   public render(props) {

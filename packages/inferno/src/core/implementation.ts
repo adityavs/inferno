@@ -1,5 +1,6 @@
 import { ChildFlags, VNodeFlags } from 'inferno-vnode-flags';
 import {
+  combineFrom,
   isArray,
   isDefined,
   isFunction,
@@ -16,7 +17,7 @@ import { validateVNodeElementChildren } from './validate';
 
 const keyPrefix = '$';
 
-export interface VNode {
+export interface VNode<P = {}> {
   children: InfernoChildren;
   childFlags: ChildFlags;
   dom: Element | null;
@@ -25,39 +26,39 @@ export interface VNode {
   isValidated?: boolean;
   key: null | number | string;
   parentVNode: VNode | null;
-  props: Props | null;
-  ref: Ref | Refs | null;
+  props: Props<P> & P | null;
+  ref: Ref | Refs<P> | null;
   type: any;
 }
 export type InfernoInput = VNode | null | string | number;
-export type Ref = (node?: Element | null) => any;
-export type InfernoChildren = string | number | boolean | undefined | VNode | Array<string | number | VNode> | null;
+export type Ref<T = Element> = { bivarianceHack(instance: T | null): any }['bivarianceHack'];
+export type InfernoChildren = string | number | boolean | undefined | VNode | Array<string | number | VNode | null | undefined> | null;
 
-export interface Props {
+export interface Props<P, T = Element> extends Refs<P> {
   children?: InfernoChildren;
-  ref?: Ref | null;
+  ref?: Ref<T> | Refs<P> | null;
   key?: any;
   className?: string;
-  [k: string]: any;
 }
 
-export interface Refs {
+export interface Refs<P> {
   onComponentDidMount?: (domNode: Element) => void;
   onComponentWillMount?(): void;
-  onComponentShouldUpdate?(lastProps, nextProps): boolean;
-  onComponentWillUpdate?(lastProps, nextProps): void;
-  onComponentDidUpdate?(lastProps, nextProps): void;
+  onComponentShouldUpdate?(lastProps: P, nextProps: P): boolean;
+  onComponentWillUpdate?(lastProps: P, nextProps: P): void;
+  onComponentDidUpdate?(lastProps: P, nextProps: P): void;
   onComponentWillUnmount?(domNode: Element): void;
 }
 
 function getVNode(childFlags: ChildFlags, children, className: string | null | undefined, flags: VNodeFlags, key, props, ref, type): VNode {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV !== 'production') {
     return {
       childFlags,
       children,
       className,
       dom: null,
       flags,
+      isValidated: false,
       key: key === void 0 ? null : key,
       parentVNode: null,
       props: props === void 0 ? null : props,
@@ -72,7 +73,6 @@ function getVNode(childFlags: ChildFlags, children, className: string | null | u
     className,
     dom: null,
     flags,
-    isValidated: false,
     key: key === void 0 ? null : key,
     parentVNode: null,
     props: props === void 0 ? null : props,
@@ -81,15 +81,15 @@ function getVNode(childFlags: ChildFlags, children, className: string | null | u
   };
 }
 
-export function createVNode(
+export function createVNode<P>(
   flags: VNodeFlags,
   type,
   className?: string | null,
   children?: InfernoChildren,
   childFlags?: ChildFlags,
-  props?: Props | null,
+  props?: Props<P> & P | null,
   key?: string | number | null,
-  ref?: Ref | Refs | null
+  ref?: Ref | Refs<P> | null
 ): VNode {
   if (process.env.NODE_ENV !== 'production') {
     if (flags & VNodeFlags.Component) {
@@ -116,7 +116,7 @@ export function createVNode(
   return vNode;
 }
 
-export function createComponentVNode(flags: VNodeFlags, type, props?: Props | null, key?: null | string | number, ref?: Ref | Refs | null) {
+export function createComponentVNode<P>(flags: VNodeFlags, type, props?: Props<P> & P | null, key?: null | string | number, ref?: Ref | Refs<P> | null) {
   if (process.env.NODE_ENV !== 'production') {
     if (flags & VNodeFlags.HtmlElement) {
       throwError('Creating element vNodes using createComponentVNode is not allowed. Use Inferno.createVNode method.');
@@ -132,11 +132,11 @@ export function createComponentVNode(flags: VNodeFlags, type, props?: Props | nu
 
   if (!isNullOrUndef(defaultProps)) {
     if (!props) {
-      props = {}; // Props can be referenced and modified at application level so always create new object
+      (props as any) = {}; // Props can be referenced and modified at application level so always create new object
     }
     for (const prop in defaultProps) {
-      if (isUndefined(props[prop])) {
-        props[prop] = defaultProps[prop];
+      if (isUndefined(props![prop])) {
+        props![prop] = defaultProps[prop];
       }
     }
   }
@@ -176,7 +176,9 @@ export function normalizeProps(vNode) {
   const props = vNode.props;
 
   if (props) {
-    if (vNode.flags & VNodeFlags.Element) {
+    const flags = vNode.flags;
+
+    if (flags & VNodeFlags.Element) {
       if (isDefined(props.children) && isNullOrUndef(vNode.children)) {
         normalizeChildren(vNode, props.children);
       }
@@ -190,7 +192,12 @@ export function normalizeProps(vNode) {
       props.key = undefined;
     }
     if (isDefined(props.ref)) {
-      vNode.ref = props.ref as any;
+      if (flags & VNodeFlags.ComponentFunction) {
+        vNode.ref = combineFrom(vNode.ref, props.ref);
+      } else {
+        vNode.ref = props.ref as any;
+      }
+
       props.ref = undefined;
     }
   }
@@ -221,7 +228,7 @@ export function directClone(vNodeToClone: VNode): VNode {
       vNodeToClone.type,
       vNodeToClone.className,
       children,
-      ChildFlags.UnknownChildren,
+      vNodeToClone.childFlags,
       vNodeToClone.props,
       vNodeToClone.key,
       vNodeToClone.ref
@@ -290,11 +297,10 @@ export function getFlagsForElementVnode(type: string): VNodeFlags {
 
 export function normalizeChildren(vNode: VNode, children) {
   let newChildren: any;
-  let newChildFlags: number;
+  let newChildFlags: number = ChildFlags.HasInvalidChildren;
 
   // Don't change children to match strict equal (===) true in patching
   if (isInvalid(children)) {
-    newChildFlags = ChildFlags.HasInvalidChildren;
     newChildren = children;
   } else if (isString(children)) {
     newChildFlags = ChildFlags.HasVNodeChildren;
